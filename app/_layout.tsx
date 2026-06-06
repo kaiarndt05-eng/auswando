@@ -88,6 +88,8 @@ function AppNavigator() {
       router.replace('/auth' as any);
     } else if (!onboardingSeen) {
       router.replace('/onboarding' as any);
+    } else {
+      router.replace('/(tabs)' as any);
     }
   }, [authLoading, loaded, session, onboardingSeen]);
 
