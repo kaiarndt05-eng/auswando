@@ -1,68 +1,75 @@
+import { Tabs } from 'expo-router';
+import { Platform, ColorValue } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import { Link, Tabs } from 'expo-router';
-import { Platform, Pressable } from 'react-native';
+import { C } from '@/constants/theme';
+import { useClientOnlyValue } from '@/hooks/useClientOnlyValue';
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+type IconProps = { color: ColorValue };
+
+function TabIcon({ ios, android, color }: { ios: string; android: string; color: ColorValue }) {
+  return (
+    <SymbolView
+      name={ios as any}
+      tintColor={color as string}
+      size={24}
+      fallback={<SymbolView name={android as any} tintColor={color as string} size={24} />}
+    />
+  );
+}
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
         headerShown: useClientOnlyValue(false, true),
-      }}>
+        headerStyle: { backgroundColor: C.surface },
+        headerTitleStyle: { color: C.text, fontWeight: '700' },
+        headerTintColor: C.primary,
+        tabBarStyle: {
+          backgroundColor: C.tabBg,
+          borderTopColor: C.border,
+          borderTopWidth: 1,
+          height: Platform.OS === 'ios' ? 84 : 60,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+        },
+        tabBarActiveTintColor: C.primary,
+        tabBarInactiveTintColor: C.textMuted,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                {({ pressed }) => (
-                  <SymbolView
-                    name={{ ios: 'info.circle', android: 'info', web: 'info' }}
-                    size={25}
-                    tintColor={Colors[colorScheme].text}
-                    style={{ opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
+          title: 'Start',
+          tabBarIcon: ({ color }: IconProps) => <TabIcon ios="house.fill" android="home" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="test"
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
+          title: 'Land-Test',
+          tabBarIcon: ({ color }: IconProps) => <TabIcon ios="checkmark.circle.fill" android="quiz" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="roadmap"
+        options={{
+          title: 'Roadmap',
+          tabBarIcon: ({ color }: IconProps) => <TabIcon ios="list.bullet.rectangle.fill" android="view_list" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="karte"
+        options={{
+          title: 'Karte',
+          tabBarIcon: ({ color }: IconProps) => <TabIcon ios="map.fill" android="map" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="community"
+        options={{
+          title: 'Community',
+          tabBarIcon: ({ color }: IconProps) => <TabIcon ios="person.3.fill" android="group" color={color} />,
         }}
       />
     </Tabs>
