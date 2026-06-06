@@ -20,19 +20,39 @@ export default function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [confirmSent, setConfirmSent] = useState(false);
 
   async function handleEmailAuth() {
+    if (!email || !password) {
+      Alert.alert('Pflichtfelder', 'Bitte E-Mail und Passwort eingeben.');
+      return;
+    }
+    if (password.length < 6) {
+      Alert.alert('Passwort zu kurz', 'Mindestens 6 Zeichen.');
+      return;
+    }
+
     setLoading(true);
-    const fn =
-      mode === 'login'
-        ? supabase.auth.signInWithPassword({ email, password })
-        : supabase.auth.signUp({ email, password });
-
-    const { error } = await fn;
-    setLoading(false);
-
-    if (error) {
-      Alert.alert('Fehler', error.message);
+    try {
+      if (mode === 'login') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) Alert.alert('Anmeldung fehlgeschlagen', error.message);
+        // on success AuthContext picks up the session automatically
+      } else {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) {
+          Alert.alert('Registrierung fehlgeschlagen', error.message);
+        } else if (data.session) {
+          // email confirmation disabled → session is immediately active
+        } else {
+          // email confirmation required
+          setConfirmSent(true);
+        }
+      }
+    } catch (e: any) {
+      Alert.alert('Fehler', e?.message ?? 'Unbekannter Fehler');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -66,6 +86,28 @@ export default function AuthScreen() {
     }
   }
 
+  if (confirmSent) {
+    return (
+      <View style={s.root}>
+        <LinearGradient colors={['#EEF1FF', '#F7F4FF', C.bg]} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFillObject} />
+        <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+          <View style={s.confirmBox}>
+            <Text style={s.confirmIcon}>📬</Text>
+            <Text style={s.confirmTitle}>E-Mail bestätigen</Text>
+            <Text style={s.confirmSub}>
+              Wir haben eine Bestätigungs-Mail an{'\n'}
+              <Text style={{ color: C.primary, fontWeight: '700' }}>{email}</Text>
+              {'\n'}gesendet. Bitte klicke den Link darin.
+            </Text>
+            <TouchableOpacity style={s.backBtn} onPress={() => { setConfirmSent(false); setMode('login'); }}>
+              <Text style={s.backBtnTxt}>Zurück zur Anmeldung</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
   return (
     <View style={s.root}>
       <LinearGradient
@@ -91,19 +133,25 @@ export default function AuthScreen() {
               placeholderTextColor={C.textMuted}
               autoCapitalize="none"
               keyboardType="email-address"
+              autoCorrect={false}
               value={email}
               onChangeText={setEmail}
             />
             <TextInput
               style={s.input}
-              placeholder="Passwort"
+              placeholder="Passwort (mind. 6 Zeichen)"
               placeholderTextColor={C.textMuted}
               secureTextEntry
               value={password}
               onChangeText={setPassword}
             />
 
-            <TouchableOpacity style={s.primaryBtn} onPress={handleEmailAuth} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={[s.primaryBtn, loading && { opacity: 0.7 }]}
+              onPress={handleEmailAuth}
+              activeOpacity={0.85}
+              disabled={loading}
+            >
               <LinearGradient
                 colors={[C.primary, '#7B5CF0']}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
@@ -193,4 +241,16 @@ const s = StyleSheet.create({
   socialBtnTxt: { fontSize: 16, color: C.text, fontWeight: '600' },
   appleBtn: { width: '100%', height: 52 },
   switchTxt: { textAlign: 'center', color: C.primary, fontSize: 15, fontWeight: '600', marginTop: 28 },
+  // confirm screen
+  confirmBox: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
+  confirmIcon: { fontSize: 64, marginBottom: 24 },
+  confirmTitle: { fontSize: 26, fontWeight: '800', color: C.text, marginBottom: 16 },
+  confirmSub: { fontSize: 16, color: C.textSub, textAlign: 'center', lineHeight: 26, marginBottom: 40 },
+  backBtn: {
+    backgroundColor: C.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+  },
+  backBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });
