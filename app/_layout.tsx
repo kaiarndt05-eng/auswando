@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { View } from 'react-native';
 
 import { AppProvider, useApp } from '@/context/AppContext';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { C } from '@/constants/theme';
 
 export { ErrorBoundary } from 'expo-router';
@@ -66,30 +67,37 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
-    <AppProvider>
-      <ThemeProvider value={DefaultTheme}>
-        <AppNavigator />
-      </ThemeProvider>
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <ThemeProvider value={DefaultTheme}>
+          <AppNavigator />
+        </ThemeProvider>
+      </AppProvider>
+    </AuthProvider>
   );
 }
 
 function AppNavigator() {
   const { loaded, onboardingSeen } = useApp();
+  const { session, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    if (!loaded) return;
-    if (!onboardingSeen) {
+    if (authLoading || !loaded) return;
+
+    if (!session) {
+      router.replace('/auth' as any);
+    } else if (!onboardingSeen) {
       router.replace('/onboarding' as any);
     }
-  }, [loaded, onboardingSeen]);
+  }, [authLoading, loaded, session, onboardingSeen]);
 
-  if (!loaded) return <View style={{ flex: 1, backgroundColor: C.bg }} />;
+  if (authLoading || !loaded) return <View style={{ flex: 1, backgroundColor: C.bg }} />;
 
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
+      <Stack.Screen name="auth/index" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
     </Stack>
   );

@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CountryId } from '@/constants/theme';
+import { fetchProgress, pushProgress, ensureProfile } from '@/lib/sync';
+import { supabase } from '@/lib/supabase';
 
 const STORAGE_KEY = '@auswando_v1';
 
@@ -9,7 +11,7 @@ type CompletedSteps = Record<CountryId, string[]>;
 export type AppState = {
   selectedCountry: CountryId;
   completedSteps: CompletedSteps;
-  emigrationDate: string | null; // 'YYYY-MM'
+  emigrationDate: string | null;
   onboardingSeen: boolean;
 };
 
@@ -43,26 +45,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(defaultState);
   const [loaded, setLoaded] = useState(false);
 
+  // Load from AsyncStorage immediately, then sync from Supabase in background
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then(raw => {
+    (async () => {
+      // 1. Load local cache first → instant UI
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) {
         try {
           const parsed = JSON.parse(raw) as Partial<AppState>;
-          setState({
-            selectedCountry: parsed.selectedCountry ?? defaultState.selectedCountry,
-            completedSteps: { ...defaultState.completedSteps, ...parsed.completedSteps },
+          setState(prev => ({
+            ...prev,
+            selectedCountry: parsed.selectedCountry ?? prev.selectedCountry,
+            completedSteps: { ...prev.completedSteps, ...parsed.completedSteps },
             emigrationDate: parsed.emigrationDate ?? null,
             onboardingSeen: parsed.onboardingSeen ?? false,
-          });
+          }));
         } catch {}
       }
       setLoaded(true);
-    });
+
+      // 2. Sync from Supabase in background (overrides local if different)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      await ensureProfile(session.user.id, session.user.email);
+      const remote = await fetchProgress(session.user.id);
+      if (!remote) return;
+
+      setState(prev => {
+        const merged: AppState = {
+          ...prev,
+          selectedCountry: remote.selected_country,
+          completedSteps: { ...prev.completedSteps, ...remote.completed_steps },
+          emigrationDate: remote.emigration_date,
+        };
+        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        return merged;
+      });
+    })();
   }, []);
 
   function persist(next: AppState) {
     setState(next);
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+
+    // Push to Supabase in the background — no await, no blocking
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) pushProgress(session.user.id, next);
+    });
   }
 
   function setCountry(id: CountryId) {
