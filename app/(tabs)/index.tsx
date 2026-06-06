@@ -6,6 +6,7 @@ import { C, COUNTRIES } from '@/constants/theme';
 import { ROADMAP_DATA } from '@/constants/roadmapData';
 import { LOGO, FLAG_IMAGES } from '@/constants/images';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -20,6 +21,7 @@ function daysUntil(dateStr: string): number {
 
 export default function HomeScreen() {
   const { selectedCountry, emigrationDate, isStepDone } = useApp();
+  const { signOut, user } = useAuth();
   const selected = COUNTRIES.find(c => c.id === selectedCountry)!;
   const phases = ROADMAP_DATA[selectedCountry];
   const freeSteps = phases.flatMap(p => p.steps).filter(s => s.free);
@@ -39,6 +41,9 @@ export default function HomeScreen() {
           <View style={s.heroHeader}>
             <Image source={LOGO} style={s.heroLogo} resizeMode="contain" />
             <Text style={s.title}>Auswando</Text>
+            <TouchableOpacity onPress={signOut} style={s.signOutBtn}>
+              <Text style={s.signOutTxt}>Abmelden</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Progress card */}
@@ -137,7 +142,9 @@ const s = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingBottom: 32 },
   hero: { padding: 24, paddingTop: 32, paddingBottom: 28 },
-  heroHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
+  heroHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20, flex: 1 },
+  signOutBtn: { marginLeft: 'auto', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: `${C.error}18`, borderWidth: 1, borderColor: `${C.error}44` },
+  signOutTxt: { color: C.error, fontSize: 12, fontWeight: '600' },
   heroLogo: { width: 40, height: 40 },
   title: { color: C.text, fontSize: 36, fontWeight: '800', letterSpacing: -1 },
   progressCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.border, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 3 },
