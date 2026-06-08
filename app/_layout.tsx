@@ -1,20 +1,34 @@
 import { useFonts } from 'expo-font';
+import {
+  Nunito_400Regular,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+  Nunito_800ExtraBold,
+  Nunito_900Black,
+} from '@expo-google-fonts/nunito';
 import { Stack, router } from 'expo-router';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { AppProvider, useApp } from '@/context/AppContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
-import { C } from '@/constants/theme';
+import { WandoProvider } from '@/context/WandoContext';
+import WandoGuide from '@/components/WandoGuide';
+import { C, FONT } from '@/constants/theme';
 
 export { ErrorBoundary } from 'expo-router';
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
+
+// App-wide default typeface: Duolingo-style rounded, friendly Nunito.
+// Per-screen styles still set fontFamily explicitly for bold/extrabold/black headlines.
+(Text as any).defaultProps = (Text as any).defaultProps || {};
+(Text as any).defaultProps.style = [{ fontFamily: FONT.regular }, (Text as any).defaultProps.style];
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -31,6 +45,11 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    Nunito_400Regular,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+    Nunito_800ExtraBold,
+    Nunito_900Black,
   });
 
   useEffect(() => {
@@ -69,9 +88,12 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <AppProvider>
-        <ThemeProvider value={DefaultTheme}>
-          <AppNavigator />
-        </ThemeProvider>
+        <WandoProvider>
+          <ThemeProvider value={DefaultTheme}>
+            <AppNavigator />
+            <WandoGuide />
+          </ThemeProvider>
+        </WandoProvider>
       </AppProvider>
     </AuthProvider>
   );
@@ -101,6 +123,7 @@ function AppNavigator() {
       <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="auth/index" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="dev-tools" options={{ presentation: 'modal', title: 'Entwicklertools' }} />
     </Stack>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ActivityIndicator,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,7 +9,8 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { supabase } from '@/lib/supabase';
-import { C } from '@/constants/theme';
+import { C, FONT } from '@/constants/theme';
+import Button from '@/components/Button';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -130,7 +131,7 @@ export default function AuthScreen() {
             <Text style={s.confirmTitle}>Fast geschafft!</Text>
             <Text style={s.confirmSub}>
               Wir haben eine Bestätigungs-Mail an{'\n'}
-              <Text style={{ color: C.primary, fontWeight: '700' }}>{email}</Text>
+              <Text style={{ color: C.primary, fontFamily: FONT.bold }}>{email}</Text>
               {'\n\n'}gesendet. Bitte klicke den Link in der E-Mail – danach kannst du dich hier anmelden.
             </Text>
             <View style={s.confirmSteps}>
@@ -140,12 +141,7 @@ export default function AuthScreen() {
                 </View>
               ))}
             </View>
-            <TouchableOpacity
-              style={s.confirmBtn}
-              onPress={() => { setConfirmSent(false); setMode('login'); }}
-            >
-              <Text style={s.confirmBtnTxt}>Zur Anmeldung</Text>
-            </TouchableOpacity>
+            <Button label="Zur Anmeldung" onPress={() => { setConfirmSent(false); setMode('login'); }} />
           </View>
         </SafeAreaView>
       </View>
@@ -205,23 +201,12 @@ export default function AuthScreen() {
               </View>
             ) : null}
 
-            <TouchableOpacity
-              style={[s.primaryBtn, loading && { opacity: 0.65 }]}
+            <Button
+              label={mode === 'login' ? 'Anmelden' : 'Konto erstellen'}
               onPress={handleEmailAuth}
-              activeOpacity={0.85}
-              disabled={loading}
-            >
-              <LinearGradient
-                colors={[C.primary, '#7B5CF0']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={s.btnGradient}
-              >
-                {loading
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={s.primaryBtnTxt}>{mode === 'login' ? 'Anmelden' : 'Konto erstellen'}</Text>
-                }
-              </LinearGradient>
-            </TouchableOpacity>
+              loading={loading}
+              fullWidth
+            />
 
             <View style={s.divider}>
               <View style={s.dividerLine} />
@@ -255,7 +240,7 @@ const s = StyleSheet.create({
   safe: { flex: 1 },
   inner: { flex: 1, justifyContent: 'center', paddingHorizontal: 28 },
   logo: { fontSize: 48, textAlign: 'center', marginBottom: 8 },
-  title: { fontSize: 32, fontWeight: '800', color: C.text, textAlign: 'center', letterSpacing: -0.5, marginBottom: 28 },
+  title: { fontSize: 32, fontFamily: FONT.black, color: C.text, textAlign: 'center', letterSpacing: -0.5, marginBottom: 28 },
 
   toggle: {
     flexDirection: 'row',
@@ -268,7 +253,7 @@ const s = StyleSheet.create({
   },
   toggleBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 9 },
   toggleActive: { backgroundColor: C.surface, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
-  toggleTxt: { fontSize: 15, fontWeight: '600', color: C.textMuted },
+  toggleTxt: { fontSize: 15, fontFamily: FONT.bold, color: C.textMuted },
   toggleActiveTxt: { color: C.primary },
 
   form: { gap: 12 },
@@ -292,26 +277,20 @@ const s = StyleSheet.create({
   },
   errorTxt: { color: C.error, fontSize: 14, lineHeight: 20 },
 
-  primaryBtn: { borderRadius: 14, overflow: 'hidden', shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
-  btnGradient: { paddingVertical: 16, alignItems: 'center' },
-  primaryBtnTxt: { color: '#fff', fontSize: 17, fontWeight: '700' },
-
   divider: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dividerLine: { flex: 1, height: 1, backgroundColor: C.border },
   dividerTxt: { color: C.textMuted, fontSize: 13 },
 
   socialBtn: { backgroundColor: C.surface, borderRadius: 14, borderWidth: 1, borderColor: C.border, paddingVertical: 14, alignItems: 'center' },
-  socialBtnTxt: { fontSize: 16, color: C.text, fontWeight: '600' },
+  socialBtnTxt: { fontSize: 16, color: C.text, fontFamily: FONT.bold },
   appleBtn: { width: '100%', height: 52 },
 
   // confirm screen
   confirmBox: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
   confirmIcon: { fontSize: 64, marginBottom: 20 },
-  confirmTitle: { fontSize: 28, fontWeight: '800', color: C.text, marginBottom: 16 },
+  confirmTitle: { fontSize: 28, fontFamily: FONT.black, color: C.text, marginBottom: 16 },
   confirmSub: { fontSize: 16, color: C.textSub, textAlign: 'center', lineHeight: 26, marginBottom: 28 },
   confirmSteps: { gap: 10, width: '100%', marginBottom: 36 },
   confirmStep: { backgroundColor: C.surface, borderRadius: 10, borderWidth: 1, borderColor: C.border, paddingVertical: 12, paddingHorizontal: 16 },
-  confirmStepTxt: { fontSize: 15, color: C.text, fontWeight: '500' },
-  confirmBtn: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 40 },
-  confirmBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  confirmStepTxt: { fontSize: 15, color: C.text, fontFamily: FONT.semibold },
 });

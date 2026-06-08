@@ -3,7 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated, StatusB
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { C, COUNTRIES } from '@/constants/theme';
+import { C, FONT, COUNTRIES } from '@/constants/theme';
+import Button from '@/components/Button';
 import { LOGO, FLAG_IMAGES } from '@/constants/images';
 import { useApp } from '@/context/AppContext';
 
@@ -78,11 +79,7 @@ export default function OnboardingScreen() {
 
         {/* CTA */}
         <Animated.View style={[s.ctaWrap, { opacity: fadeAnim, transform: [{ scale: scaleBtn }] }]}>
-          <TouchableOpacity style={s.ctaBtn} onPress={handleStart} activeOpacity={0.85}>
-            <LinearGradient colors={[C.primary, '#7B5CF0']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.ctaGradient}>
-              <Text style={s.ctaTxt}>Auswandern  →</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+          <Button label="Auswandern →" onPress={handleStart} fullWidth style={s.ctaBtn} />
           <Text style={s.ctaSub}>Kostenlos starten · Keine Registrierung</Text>
         </Animated.View>
       </SafeAreaView>
@@ -103,18 +100,16 @@ const s = StyleSheet.create({
   decoCircle3: { width: 140, height: 140, top: 160, right: 40, backgroundColor: C.accent, opacity: 0.12 },
   content: { flex: 1, paddingHorizontal: 28, paddingTop: height * 0.10, justifyContent: 'center' },
   logo: { width: 72, height: 72, marginBottom: 28 },
-  headline: { color: C.text, fontSize: 34, fontWeight: '800', letterSpacing: -1, lineHeight: 42, marginBottom: 18 },
+  headline: { color: C.text, fontSize: 34, fontFamily: FONT.black, letterSpacing: -1, lineHeight: 42, marginBottom: 18 },
   sub: { color: C.textSub, fontSize: 16, lineHeight: 24, marginBottom: 32 },
   chips: { flexDirection: 'row', gap: 10, marginBottom: 24, flexWrap: 'wrap' },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1.5 },
   chipFlag: { width: 26, height: 26, borderRadius: 13 },
-  chipName: { fontSize: 14, fontWeight: '700' },
+  chipName: { fontSize: 14, fontFamily: FONT.extrabold },
   pills: { gap: 8 },
   pill: { backgroundColor: C.card, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: C.border, alignSelf: 'flex-start', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
-  pillTxt: { color: C.textSub, fontSize: 13, fontWeight: '500' },
+  pillTxt: { color: C.textSub, fontSize: 13, fontFamily: FONT.semibold },
   ctaWrap: { paddingHorizontal: 28, paddingBottom: 16, alignItems: 'center' },
-  ctaBtn: { width: '100%', borderRadius: 18, overflow: 'hidden', shadowColor: C.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14, elevation: 8, marginBottom: 14 },
-  ctaGradient: { paddingVertical: 18, alignItems: 'center' },
-  ctaTxt: { color: '#fff', fontSize: 20, fontWeight: '800', letterSpacing: 0.3 },
+  ctaBtn: { width: '100%', marginBottom: 14 },
   ctaSub: { color: C.textMuted, fontSize: 13 },
 });

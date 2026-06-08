@@ -3,10 +3,14 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, Animated, 
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { C, COUNTRIES, CountryId } from '@/constants/theme';
+import { C, FONT, COUNTRIES, CountryId } from '@/constants/theme';
+import Button from '@/components/Button';
 import { ROADMAP_DATA } from '@/constants/roadmapData';
 import { FLAG_IMAGES } from '@/constants/images';
 import { useApp } from '@/context/AppContext';
+import RoadmapIntake from '@/components/RoadmapIntake';
+import { useWando } from '@/context/WandoContext';
+import { WANDO_MESSAGES } from '@/constants/wandoMessages';
 
 const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
   'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
@@ -24,8 +28,33 @@ function getTrackStatus(monthsLeft: number, donePct: number) {
   return { label: 'Hinter dem Plan', color: C.error };
 }
 
+const SHADOW_SM = {
+  shadowColor: '#1A2A5E',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.06,
+  shadowRadius: 4,
+  elevation: 2,
+} as const;
+
+const SHADOW_MD = {
+  shadowColor: '#1A2A5E',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.09,
+  shadowRadius: 10,
+  elevation: 4,
+} as const;
+
+const SHADOW_LG = {
+  shadowColor: '#1A2A5E',
+  shadowOffset: { width: 0, height: 5 },
+  shadowOpacity: 0.14,
+  shadowRadius: 20,
+  elevation: 8,
+} as const;
+
 export default function RoadmapScreen() {
-  const { selectedCountry, setCountry, isStepDone, toggleStep, emigrationDate, setEmigrationDate } = useApp();
+  const { selectedCountry, setCountry, isStepDone, toggleStep, emigrationDate, setEmigrationDate, isPremium, roadmapProfileDone, saveRoadmapProfile } = useApp();
+  const wando = useWando();
   const country = selectedCountry;
   const [showPremium, setShowPremium] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
@@ -34,7 +63,6 @@ export default function RoadmapScreen() {
   const celebAnim = useRef(new Animated.Value(0)).current;
   const celebOpacity = useRef(new Animated.Value(0)).current;
 
-  // Date picker state — default: 12 months from now
   const initDate = () => {
     const d = new Date();
     d.setMonth(d.getMonth() + 12);
@@ -49,6 +77,18 @@ export default function RoadmapScreen() {
   const freeSteps = allSteps.filter(s => s.free);
   const doneCount = freeSteps.filter(s => isStepDone(country, s.title)).length;
   const donePct = freeSteps.length > 0 ? doneCount / freeSteps.length : 0;
+
+  useEffect(() => {
+    if (roadmapProfileDone) wando.sayOnce(WANDO_MESSAGES.roadmap);
+  }, [roadmapProfileDone]);
+
+  useEffect(() => {
+    if (doneCount === 1) wando.sayOnce(WANDO_MESSAGES.firstStepDone);
+  }, [doneCount]);
+
+  if (!roadmapProfileDone) {
+    return <RoadmapIntake onDone={saveRoadmapProfile} />;
+  }
 
   const monthsLeft = emigrationDate ? getMonthsUntil(emigrationDate) : null;
   const trackStatus = emigrationDate && monthsLeft !== null ? getTrackStatus(monthsLeft, donePct) : null;
@@ -70,16 +110,11 @@ export default function RoadmapScreen() {
   };
 
   const handleStepTap = async (phaseIdx: number, stepTitle: string, isFree: boolean) => {
-    if (!isFree) {
-      setShowPremium(true);
-      return;
-    }
+    if (!isFree && !isPremium) { setShowPremium(true); return; }
     const wasAlreadyDone = isStepDone(country, stepTitle);
     const willMarkDone = !wasAlreadyDone;
-
     toggleStep(country, stepTitle);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
     if (willMarkDone) {
       const phase = phases[phaseIdx];
       const otherFreeStepsDone = phase.steps
@@ -116,52 +151,56 @@ export default function RoadmapScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      {/* Country selector */}
+
+      {/* Country tabs */}
       <View style={s.tabs}>
         {COUNTRIES.map(c => (
           <TouchableOpacity
             key={c.id}
-            style={[s.tab, country === c.id && { borderBottomColor: selected.color, borderBottomWidth: 2 }]}
+            style={[s.tab, country === c.id && { borderBottomColor: selected.color, borderBottomWidth: 2.5 }]}
             onPress={() => setCountry(c.id)}
+            activeOpacity={0.8}
           >
             <Image source={FLAG_IMAGES[c.id]} style={s.tabFlag} />
-            <Text style={[s.tabName, { color: country === c.id ? C.text : C.textSub }]}>{c.name}</Text>
+            <Text style={[s.tabName, { color: country === c.id ? C.text : C.textMuted }]}>{c.name}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll}>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+
         {/* Header */}
-        <LinearGradient colors={[`${selected.color}20`, C.bg]} style={s.header}>
+        <LinearGradient colors={[`${selected.color}22`, `${selected.color}08`, C.bg]} style={s.header}>
           <Image source={FLAG_IMAGES[country]} style={s.headerFlag} />
           <View style={{ flex: 1 }}>
             <Text style={s.headerTitle}>{selected.name} Roadmap</Text>
             <Text style={s.headerSub}>{doneCount} von {freeSteps.length} kostenlosen Schritten erledigt</Text>
-            {/* Progress bar */}
-            <View style={s.progressBg}>
-              <View style={[s.progressFill, { width: `${donePct * 100}%` as any, backgroundColor: selected.color }]} />
+            <View style={s.headerTrack}>
+              <LinearGradient
+                colors={[selected.color, `${selected.color}88`]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={[s.headerFill, { width: `${Math.max(donePct * 100, 2)}%` as any }]}
+              />
             </View>
           </View>
         </LinearGradient>
 
-        {/* Emigration goal row */}
+        {/* Emigration goal */}
         <View style={s.goalRow}>
-          <TouchableOpacity style={s.goalBtn} onPress={() => setShowDatePicker(true)}>
+          <TouchableOpacity style={s.goalBtn} onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
             <Text style={s.goalIcon}>📅</Text>
             <View>
-              <Text style={s.goalLabel}>Auswanderungsziel</Text>
+              <Text style={s.goalLabel}>AUSWANDERUNGSZIEL</Text>
               <Text style={[s.goalDate, { color: emigrationDate ? selected.color : C.textMuted }]}>
                 {emigrationDate ? formatDate(emigrationDate) : 'Zieldatum festlegen →'}
               </Text>
             </View>
           </TouchableOpacity>
           {trackStatus && (
-            <View style={[s.trackBadge, { borderColor: `${trackStatus.color}44`, backgroundColor: `${trackStatus.color}15` }]}>
+            <View style={[s.trackBadge, { borderColor: `${trackStatus.color}44`, backgroundColor: `${trackStatus.color}14` }]}>
               <Text style={[s.trackLabel, { color: trackStatus.color }]}>{trackStatus.label}</Text>
               {monthsLeft !== null && (
-                <Text style={[s.trackSub, { color: trackStatus.color }]}>
-                  noch {monthsLeft} Mon.
-                </Text>
+                <Text style={[s.trackSub, { color: trackStatus.color }]}>noch {monthsLeft} Mon.</Text>
               )}
             </View>
           )}
@@ -170,33 +209,69 @@ export default function RoadmapScreen() {
         {/* Phases */}
         {phases.map((phase, pi) => (
           <View key={pi} style={s.phase}>
-            <Text style={s.phaseTitle}>{phase.title}</Text>
+            {/* Phase header */}
+            <View style={s.phaseHeader}>
+              <View style={[s.phaseNumBadge, { backgroundColor: `${selected.color}18`, borderColor: `${selected.color}44` }]}>
+                <Text style={[s.phaseNum, { color: selected.color }]}>{pi + 1}</Text>
+              </View>
+              <Text style={s.phaseTitle}>{phase.title}</Text>
+            </View>
+
+            {/* Steps */}
             {phase.steps.map((step, si) => {
-              const done = step.free && isStepDone(country, step.title);
+              const unlocked = step.free || isPremium;
+              const done = unlocked && isStepDone(country, step.title);
               return (
-                <TouchableOpacity key={si} style={s.stepRow} activeOpacity={0.7} onPress={() => handleStepTap(pi, step.title, step.free)}>
-                  <View style={[s.stepLine, { backgroundColor: si < phase.steps.length - 1 ? C.border : 'transparent' }]} />
-                  <View style={[s.stepDot, done && { backgroundColor: selected.color, borderColor: selected.color }]}>
-                    {done
-                      ? <Text style={s.checkMark}>✓</Text>
-                      : !step.free
-                        ? <Text style={s.lockIcon}>🔒</Text>
-                        : null
-                    }
+                <TouchableOpacity
+                  key={si}
+                  style={s.stepRow}
+                  activeOpacity={0.8}
+                  onPress={() => handleStepTap(pi, step.title, step.free)}
+                >
+                  {/* Timeline */}
+                  <View style={s.timelineCol}>
+                    <View style={[
+                      s.stepDot,
+                      done && { backgroundColor: selected.color, borderColor: selected.color },
+                      !unlocked && !done && { borderColor: C.textMuted },
+                    ]}>
+                      {done
+                        ? <Text style={s.checkMark}>✓</Text>
+                        : !unlocked
+                          ? <Text style={s.lockMark}>🔒</Text>
+                          : null
+                      }
+                    </View>
+                    {si < phase.steps.length - 1 && (
+                      <View style={[s.stepLine, done && { backgroundColor: `${selected.color}60` }]} />
+                    )}
                   </View>
-                  <View style={[s.stepCard, !step.free && s.stepLocked, done && { borderColor: `${selected.color}44` }]}>
+
+                  {/* Card */}
+                  <View style={[
+                    s.stepCard,
+                    !unlocked && s.stepLocked,
+                    done && { borderColor: `${selected.color}40`, backgroundColor: `${selected.color}06` },
+                  ]}>
                     <Text style={s.stepIcon}>{step.icon}</Text>
                     <View style={s.stepContent}>
-                      <Text style={[s.stepTitle, !step.free && { color: C.textMuted }, done && { color: selected.color }]}>
+                      <Text style={[
+                        s.stepTitle,
+                        !unlocked && { color: C.textMuted },
+                        done && { color: selected.color },
+                      ]}>
                         {step.title}
                       </Text>
-                      {step.free ? (
-                        <Text style={s.stepDesc}>{step.desc}</Text>
-                      ) : (
-                        <Text style={s.premiumHint}>🔒 Premium freischalten</Text>
-                      )}
+                      {unlocked
+                        ? <Text style={s.stepDesc}>{step.desc}</Text>
+                        : <Text style={s.stepLockHint}>Premium freischalten →</Text>
+                      }
                     </View>
-                    {done && <Text style={[s.doneBadge, { color: selected.color }]}>✓</Text>}
+                    {done && (
+                      <View style={[s.donePill, { backgroundColor: `${selected.color}18` }]}>
+                        <Text style={[s.donePillTxt, { color: selected.color }]}>✓</Text>
+                      </View>
+                    )}
                   </View>
                 </TouchableOpacity>
               );
@@ -205,21 +280,24 @@ export default function RoadmapScreen() {
         ))}
 
         {/* Upsell */}
-        <TouchableOpacity onPress={() => setShowPremium(true)}>
-          <LinearGradient colors={['#E8FFF6', '#F4FFFB']} style={s.upsell}>
-            <Text style={s.upsellTitle}>🔓 Alles freischalten</Text>
-            <Text style={s.upsellSub}>Vollständige Roadmap, Videotutorials & direkte Antragslinks</Text>
-            <View style={s.upsellPrice}>
-              <Text style={s.upsellPriceMain}>49 €</Text>
-              <Text style={s.upsellPriceSub}>einmalig · lebenslanger Zugriff</Text>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
+        {!isPremium && (
+          <TouchableOpacity onPress={() => setShowPremium(true)} activeOpacity={0.9} style={s.upsellWrap}>
+            <LinearGradient colors={['#0E1C60', '#1A348A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.upsell}>
+              <Text style={s.upsellTitle}>🔓  Alles freischalten</Text>
+              <Text style={s.upsellSub}>Vollständige Roadmap, Videotutorials & direkte Antragslinks</Text>
+              <View style={s.upsellPriceRow}>
+                <Text style={s.upsellPrice}>49 €</Text>
+                <Text style={s.upsellPriceSub}>einmalig · lebenslanger Zugriff</Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
       </ScrollView>
 
       {/* Celebration overlay */}
       <Modal visible={!!celebration} transparent animationType="none" statusBarTranslucent>
-        <Animated.View style={[s.celebContainer, { opacity: celebOpacity }]}>
+        <Animated.View style={[s.celebBg, { opacity: celebOpacity }]}>
           <Animated.View style={[s.celebCard, { transform: [{ scale: celebAnim }] }]}>
             <Text style={s.celebEmoji}>🎉</Text>
             <Text style={s.celebTitle}>{celebration} abgeschlossen!</Text>
@@ -236,15 +314,13 @@ export default function RoadmapScreen() {
             <Text style={s.modalSub}>Einmaliger Kauf für 49 € – lebenslanger Zugriff</Text>
             {['Vollständige Roadmap für alle Länder', 'Videotutorials zu jedem Schritt', 'Direkte Links zu Anträgen & Behörden', 'Community-Vollzugriff', 'E-Mail Support'].map(f => (
               <View key={f} style={s.modalFeature}>
-                <Text style={{ color: C.success }}>✓</Text>
+                <View style={s.featureCheck}><Text style={s.featureCheckTxt}>✓</Text></View>
                 <Text style={s.modalFeatureTxt}>{f}</Text>
               </View>
             ))}
-            <TouchableOpacity style={[s.modalBtn, { backgroundColor: C.success }]}>
-              <Text style={s.modalBtnTxt}>Jetzt kaufen – 49 €</Text>
-            </TouchableOpacity>
+            <Button label="Jetzt kaufen – 49 €" color={C.success} onPress={() => {}} fullWidth style={s.modalBtn} />
             <TouchableOpacity style={s.modalClose} onPress={() => setShowPremium(false)}>
-              <Text style={{ color: C.textSub }}>Schließen</Text>
+              <Text style={s.modalCloseTxt}>Schließen</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -257,27 +333,25 @@ export default function RoadmapScreen() {
             <Text style={s.modalTitle}>📅 Auswanderungsziel</Text>
             <Text style={s.modalSub}>Wann möchtest du auswandern?</Text>
             <View style={s.datePicker}>
-              <TouchableOpacity style={s.dateArrow} onPress={() => adjustPickerMonth(-1)}>
+              <TouchableOpacity style={s.dateArrow} onPress={() => adjustPickerMonth(-1)} activeOpacity={0.8}>
                 <Text style={s.dateArrowTxt}>‹</Text>
               </TouchableOpacity>
               <View style={s.dateDisplay}>
                 <Text style={s.dateMonth}>{MONTHS[pickerDate.month - 1]}</Text>
                 <Text style={s.dateYear}>{pickerDate.year}</Text>
               </View>
-              <TouchableOpacity style={s.dateArrow} onPress={() => adjustPickerMonth(1)}>
+              <TouchableOpacity style={s.dateArrow} onPress={() => adjustPickerMonth(1)} activeOpacity={0.8}>
                 <Text style={s.dateArrowTxt}>›</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={[s.modalBtn, { backgroundColor: selected.color }]} onPress={saveDate}>
-              <Text style={s.modalBtnTxt}>Ziel speichern</Text>
-            </TouchableOpacity>
+            <Button label="Ziel speichern" color={selected.color} onPress={saveDate} fullWidth style={s.modalBtn} />
             {emigrationDate && (
               <TouchableOpacity style={s.modalClose} onPress={() => { setEmigrationDate(null); setShowDatePicker(false); }}>
-                <Text style={{ color: C.error, fontSize: 13 }}>Zieldatum entfernen</Text>
+                <Text style={[s.modalCloseTxt, { color: C.error }]}>Zieldatum entfernen</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={s.modalClose} onPress={() => setShowDatePicker(false)}>
-              <Text style={{ color: C.textSub }}>Abbrechen</Text>
+              <Text style={s.modalCloseTxt}>Abbrechen</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -288,64 +362,138 @@ export default function RoadmapScreen() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
-  tabs: { flexDirection: 'row', backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabFlag: { width: 26, height: 26, borderRadius: 13, marginBottom: 2 },
-  tabName: { fontSize: 11, fontWeight: '600' },
-  scroll: { paddingBottom: 40 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.border },
-  headerFlag: { width: 52, height: 52, borderRadius: 26 },
-  headerTitle: { color: C.text, fontSize: 20, fontWeight: '700' },
-  headerSub: { color: C.textSub, fontSize: 12, marginTop: 2, marginBottom: 8 },
-  progressBg: { height: 5, backgroundColor: C.border, borderRadius: 3, marginTop: 4 },
-  progressFill: { height: 5, borderRadius: 3 },
-  goalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border },
-  goalBtn: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+
+  // Country tabs
+  tabs: {
+    flexDirection: 'row', backgroundColor: C.surface,
+    borderBottomWidth: 1, borderBottomColor: C.border,
+    ...SHADOW_SM,
+  },
+  tab: {
+    flex: 1, alignItems: 'center', paddingVertical: 12,
+    borderBottomWidth: 2.5, borderBottomColor: 'transparent',
+  },
+  tabFlag: { width: 26, height: 26, borderRadius: 13, marginBottom: 3 },
+  tabName: { fontSize: 11, fontFamily: FONT.bold, letterSpacing: 0.1 },
+
+  scroll: { paddingBottom: 48 },
+
+  // Header
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    padding: 20, paddingBottom: 18,
+    borderBottomWidth: 1, borderBottomColor: C.border,
+  },
+  headerFlag: { width: 54, height: 54, borderRadius: 27 },
+  headerTitle: { color: C.text, fontSize: 20, fontFamily: FONT.black, letterSpacing: -0.3, marginBottom: 3 },
+  headerSub: { color: C.textSub, fontSize: 12, marginBottom: 9 },
+  headerTrack: { height: 6, backgroundColor: C.border, borderRadius: 3, overflow: 'hidden' },
+  headerFill: { height: 6, borderRadius: 3 },
+
+  // Goal row
+  goalRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: C.border,
+    backgroundColor: C.surface,
+  },
+  goalBtn: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   goalIcon: { fontSize: 22 },
-  goalLabel: { color: C.textSub, fontSize: 11, fontWeight: '600', letterSpacing: 0.5 },
-  goalDate: { fontSize: 14, fontWeight: '700', marginTop: 1 },
-  trackBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, alignItems: 'center' },
-  trackLabel: { fontSize: 11, fontWeight: '700' },
-  trackSub: { fontSize: 10, marginTop: 1 },
-  phase: { paddingHorizontal: 20, paddingTop: 20 },
-  phaseTitle: { color: C.primary, fontSize: 12, fontWeight: '700', letterSpacing: 0.5, marginBottom: 16 },
-  stepRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
-  stepLine: { position: 'absolute', left: 11, top: 28, width: 2, height: '100%' },
-  stepDot: { width: 24, height: 24, borderRadius: 12, marginRight: 12, borderWidth: 2, borderColor: C.border, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center', marginTop: 12, zIndex: 1 },
-  checkMark: { color: '#fff', fontSize: 12, fontWeight: '800' },
-  lockIcon: { fontSize: 10 },
-  stepCard: { flex: 1, backgroundColor: C.card, borderRadius: 12, padding: 14, flexDirection: 'row', gap: 10, borderWidth: 1, borderColor: C.border, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
-  stepLocked: { opacity: 0.6 },
+  goalLabel: { color: C.textMuted, fontSize: 10, fontFamily: FONT.bold, letterSpacing: 1, marginBottom: 3 },
+  goalDate: { fontSize: 15, fontFamily: FONT.extrabold, letterSpacing: -0.2 },
+  trackBadge: {
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7,
+    borderWidth: 1, alignItems: 'center',
+  },
+  trackLabel: { fontSize: 11, fontFamily: FONT.bold },
+  trackSub: { fontSize: 10, marginTop: 2, fontFamily: FONT.semibold },
+
+  // Phase
+  phase: { paddingHorizontal: 20, paddingTop: 22 },
+  phaseHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  phaseNumBadge: {
+    width: 26, height: 26, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1,
+  },
+  phaseNum: { fontSize: 13, fontFamily: FONT.extrabold },
+  phaseTitle: { color: C.text, fontSize: 14, fontFamily: FONT.extrabold, letterSpacing: 0.1, flex: 1 },
+
+  // Step row
+  stepRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10, gap: 10 },
+  timelineCol: { alignItems: 'center', width: 26, marginTop: 14 },
+  stepDot: {
+    width: 24, height: 24, borderRadius: 12,
+    borderWidth: 2, borderColor: C.border, backgroundColor: C.card,
+    alignItems: 'center', justifyContent: 'center', zIndex: 1,
+  },
+  stepLine: {
+    width: 2, flex: 1, minHeight: 12, marginTop: 4,
+    backgroundColor: C.border, borderRadius: 1,
+  },
+  checkMark: { color: '#fff', fontSize: 12, fontFamily: FONT.extrabold },
+  lockMark: { fontSize: 9 },
+  stepCard: {
+    flex: 1, backgroundColor: C.card, borderRadius: 14, padding: 14,
+    flexDirection: 'row', gap: 12, borderWidth: 1, borderColor: C.border, ...SHADOW_SM,
+  },
+  stepLocked: { opacity: 0.55 },
   stepIcon: { fontSize: 22, marginTop: 1 },
   stepContent: { flex: 1 },
-  stepTitle: { color: C.text, fontSize: 14, fontWeight: '600', marginBottom: 4 },
+  stepTitle: { color: C.text, fontSize: 14, fontFamily: FONT.bold, marginBottom: 4, letterSpacing: -0.1 },
   stepDesc: { color: C.textSub, fontSize: 12, lineHeight: 18 },
-  premiumHint: { color: C.accent, fontSize: 12, fontWeight: '600' },
-  doneBadge: { fontSize: 18, fontWeight: '700', alignSelf: 'center' },
-  upsell: { margin: 20, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#B8E6CC', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
-  upsellTitle: { color: C.text, fontSize: 20, fontWeight: '700', marginBottom: 8 },
-  upsellSub: { color: C.textSub, fontSize: 13, lineHeight: 20, marginBottom: 16 },
-  upsellPrice: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  upsellPriceMain: { color: C.success, fontSize: 28, fontWeight: '800' },
-  upsellPriceSub: { color: C.textSub, fontSize: 12 },
-  celebContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center' },
-  celebCard: { backgroundColor: C.surface, borderRadius: 24, padding: 36, alignItems: 'center', borderWidth: 1, borderColor: C.border, marginHorizontal: 40 },
-  celebEmoji: { fontSize: 64, marginBottom: 16 },
-  celebTitle: { color: C.text, fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 6 },
+  stepLockHint: { color: C.accent, fontSize: 12, fontFamily: FONT.semibold },
+  donePill: { borderRadius: 8, width: 28, height: 28, alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },
+  donePillTxt: { fontSize: 13, fontFamily: FONT.extrabold },
+
+  // Upsell
+  upsellWrap: { marginHorizontal: 20, marginTop: 24, borderRadius: 20, overflow: 'hidden', ...SHADOW_LG },
+  upsell: { padding: 24 },
+  upsellTitle: { color: '#FFFFFF', fontSize: 22, fontFamily: FONT.black, letterSpacing: -0.3, marginBottom: 8 },
+  upsellSub: { color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 20, marginBottom: 18 },
+  upsellPriceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  upsellPrice: { color: '#FFFFFF', fontSize: 32, fontFamily: FONT.black, letterSpacing: -0.8 },
+  upsellPriceSub: { color: 'rgba(255,255,255,0.65)', fontSize: 13 },
+
+  // Celebration
+  celebBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center' },
+  celebCard: {
+    backgroundColor: C.surface, borderRadius: 26, padding: 36,
+    alignItems: 'center', marginHorizontal: 40, borderWidth: 1, borderColor: C.border, ...SHADOW_LG,
+  },
+  celebEmoji: { fontSize: 60, marginBottom: 14 },
+  celebTitle: { color: C.text, fontSize: 22, fontFamily: FONT.black, textAlign: 'center', marginBottom: 6, letterSpacing: -0.3 },
   celebSub: { color: C.textSub, fontSize: 15, textAlign: 'center' },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  modal: { backgroundColor: C.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 28, borderTopWidth: 1, borderColor: C.border },
-  modalTitle: { color: C.text, fontSize: 22, fontWeight: '700', marginBottom: 6 },
-  modalSub: { color: C.textSub, fontSize: 14, marginBottom: 20 },
-  modalFeature: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  modalFeatureTxt: { color: C.text, fontSize: 14 },
-  modalBtn: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20, marginBottom: 12 },
-  modalBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  modalClose: { alignItems: 'center', paddingVertical: 8 },
-  datePicker: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, paddingVertical: 12 },
-  dateArrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: C.card, borderRadius: 12, borderWidth: 1, borderColor: C.border },
-  dateArrowTxt: { color: C.text, fontSize: 28, fontWeight: '300', lineHeight: 32 },
-  dateDisplay: { alignItems: 'center', minWidth: 120 },
-  dateMonth: { color: C.text, fontSize: 22, fontWeight: '700' },
-  dateYear: { color: C.textSub, fontSize: 16, marginTop: 2 },
+
+  // Overlay / Modal
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'flex-end' },
+  modal: {
+    backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 28, borderTopWidth: 1, borderColor: C.border,
+  },
+  modalTitle: { color: C.text, fontSize: 22, fontFamily: FONT.black, marginBottom: 6, letterSpacing: -0.3 },
+  modalSub: { color: C.textSub, fontSize: 14, marginBottom: 22, lineHeight: 21 },
+  modalFeature: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  featureCheck: {
+    width: 24, height: 24, borderRadius: 7, backgroundColor: C.successBg,
+    borderWidth: 1, borderColor: `${C.success}44`, alignItems: 'center', justifyContent: 'center',
+  },
+  featureCheckTxt: { color: C.success, fontSize: 12, fontFamily: FONT.bold },
+  modalFeatureTxt: { color: C.text, fontSize: 14, flex: 1 },
+  modalBtn: { marginTop: 20, marginBottom: 10 },
+  modalClose: { alignItems: 'center', paddingVertical: 10 },
+  modalCloseTxt: { color: C.textSub, fontSize: 14, fontFamily: FONT.semibold },
+
+  // Date picker
+  datePicker: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 16, paddingVertical: 16,
+  },
+  dateArrow: {
+    width: 46, height: 46, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border,
+  },
+  dateArrowTxt: { color: C.text, fontSize: 30, fontFamily: FONT.regular, lineHeight: 34 },
+  dateDisplay: { alignItems: 'center', minWidth: 130 },
+  dateMonth: { color: C.text, fontSize: 24, fontFamily: FONT.extrabold, letterSpacing: -0.3 },
+  dateYear: { color: C.textSub, fontSize: 16, marginTop: 3, fontFamily: FONT.semibold },
 });

@@ -1,15 +1,24 @@
+import { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { C, COUNTRIES } from '@/constants/theme';
+import { C, FONT, COUNTRIES } from '@/constants/theme';
+import Button from '@/components/Button';
 import { ROADMAP_DATA } from '@/constants/roadmapData';
 import { FLAG_IMAGES } from '@/constants/images';
 import { useApp } from '@/context/AppContext';
+import { useWando } from '@/context/WandoContext';
+import { WANDO_MESSAGES } from '@/constants/wandoMessages';
 import AuswandoMap from '@/components/AuswandoMap';
 
 export default function KarteScreen() {
   const { selectedCountry, completedSteps } = useApp();
+  const wando = useWando();
   const country = selectedCountry;
+
+  useEffect(() => {
+    wando.sayOnce(WANDO_MESSAGES.karte);
+  }, []);
 
   const dest = COUNTRIES.find(c => c.id === country)!;
   const allFreeSteps = ROADMAP_DATA[country].flatMap(p => p.steps).filter(s => s.free);
@@ -38,12 +47,13 @@ export default function KarteScreen() {
           <View style={[s.barFill, { width: `${pct * 100}%` as any, backgroundColor: dest.color }]} />
         </View>
 
-        <TouchableOpacity
-          style={[s.roadmapBtn, { borderColor: dest.color, backgroundColor: `${dest.color}12` }]}
+        <Button
+          label="Roadmap öffnen → nächste Schritte"
+          color={dest.color}
           onPress={() => router.push('/(tabs)/roadmap')}
-        >
-          <Text style={[s.roadmapBtnTxt, { color: dest.color }]}>Roadmap öffnen → nächste Schritte</Text>
-        </TouchableOpacity>
+          fullWidth
+          style={s.roadmapBtn}
+        />
 
         <View style={s.selector}>
           {COUNTRIES.map(c => (
@@ -68,15 +78,14 @@ const s = StyleSheet.create({
   card: { backgroundColor: C.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 10, borderTopWidth: 1, borderColor: C.border, shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 12 },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
   progressFlag: { width: 44, height: 44, borderRadius: 22 },
-  progressTitle: { color: C.text, fontSize: 17, fontWeight: '700' },
+  progressTitle: { color: C.text, fontSize: 17, fontFamily: FONT.extrabold },
   progressSub: { color: C.textSub, fontSize: 12, marginTop: 1 },
-  progressPct: { fontSize: 22, fontWeight: '800' },
+  progressPct: { fontSize: 22, fontFamily: FONT.black },
   barBg: { height: 6, backgroundColor: C.border, borderRadius: 3, marginBottom: 14 },
   barFill: { height: 6, borderRadius: 3 },
-  roadmapBtn: { borderRadius: 12, paddingVertical: 12, alignItems: 'center', borderWidth: 1.5, marginBottom: 14 },
-  roadmapBtnTxt: { fontSize: 14, fontWeight: '700' },
+  roadmapBtn: { marginBottom: 14 },
   selector: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
   selectorBtn: { flex: 1, borderRadius: 12, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: C.border, backgroundColor: C.bg },
   selectorFlag: { width: 32, height: 32, borderRadius: 16, marginBottom: 4 },
-  selectorName: { fontSize: 11, fontWeight: '600' },
+  selectorName: { fontSize: 11, fontFamily: FONT.bold },
 });

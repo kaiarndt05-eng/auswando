@@ -8,11 +8,18 @@ const STORAGE_KEY = '@auswando_v1';
 
 type CompletedSteps = Record<CountryId, string[]>;
 
+export type RoadmapProfile = Record<string, string>;
+
 export type AppState = {
   selectedCountry: CountryId;
   completedSteps: CompletedSteps;
   emigrationDate: string | null;
   onboardingSeen: boolean;
+  /** True once the user has actively picked their one target country (Duolingo-style "your language"). */
+  countryChosen: boolean;
+  isPremium: boolean;
+  roadmapProfile: RoadmapProfile;
+  roadmapProfileDone: boolean;
 };
 
 type AppContextType = AppState & {
@@ -22,6 +29,10 @@ type AppContextType = AppState & {
   setEmigrationDate: (date: string | null) => void;
   isStepDone: (country: CountryId, stepTitle: string) => boolean;
   markOnboardingSeen: () => void;
+  setPremium: (value: boolean) => void;
+  saveRoadmapProfile: (answers: RoadmapProfile) => void;
+  /** Dev-only: wipes all persisted app data, simulating a fresh install. */
+  resetAll: () => Promise<void>;
 };
 
 const defaultState: AppState = {
@@ -29,6 +40,10 @@ const defaultState: AppState = {
   completedSteps: { pt: [], es: [], ch: [] },
   emigrationDate: null,
   onboardingSeen: false,
+  countryChosen: false,
+  isPremium: false,
+  roadmapProfile: {},
+  roadmapProfileDone: false,
 };
 
 const AppContext = createContext<AppContextType>({
@@ -39,6 +54,9 @@ const AppContext = createContext<AppContextType>({
   setEmigrationDate: () => {},
   isStepDone: () => false,
   markOnboardingSeen: () => {},
+  setPremium: () => {},
+  saveRoadmapProfile: () => {},
+  resetAll: async () => {},
 });
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -59,6 +77,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             completedSteps: { ...prev.completedSteps, ...parsed.completedSteps },
             emigrationDate: parsed.emigrationDate ?? null,
             onboardingSeen: parsed.onboardingSeen ?? false,
+            // Migration: installs from before this flag existed already had a country in active use.
+            countryChosen: parsed.countryChosen ?? parsed.onboardingSeen ?? false,
+            isPremium: parsed.isPremium ?? false,
+            roadmapProfile: parsed.roadmapProfile ?? {},
+            roadmapProfileDone: parsed.roadmapProfileDone ?? false,
           }));
         } catch {}
       }
@@ -78,6 +101,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           selectedCountry: remote.selected_country,
           completedSteps: { ...prev.completedSteps, ...remote.completed_steps },
           emigrationDate: remote.emigration_date,
+          // Existing remote progress means this user already picked a country on another device.
+          countryChosen: true,
         };
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
         return merged;
@@ -96,7 +121,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   function setCountry(id: CountryId) {
-    persist({ ...state, selectedCountry: id });
+    persist({ ...state, selectedCountry: id, countryChosen: true });
   }
 
   function toggleStep(country: CountryId, stepTitle: string) {
@@ -119,8 +144,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     persist({ ...state, onboardingSeen: true });
   }
 
+  function setPremium(value: boolean) {
+    persist({ ...state, isPremium: value });
+  }
+
+  function saveRoadmapProfile(answers: RoadmapProfile) {
+    persist({ ...state, roadmapProfile: answers, roadmapProfileDone: true });
+  }
+
+  async function resetAll() {
+    await AsyncStorage.removeItem(STORAGE_KEY);
+    setState(defaultState);
+    setLoaded(true);
+  }
+
   return (
-    <AppContext.Provider value={{ ...state, loaded, setCountry, toggleStep, setEmigrationDate, isStepDone, markOnboardingSeen }}>
+    <AppContext.Provider value={{ ...state, loaded, setCountry, toggleStep, setEmigrationDate, isStepDone, markOnboardingSeen, setPremium, saveRoadmapProfile, resetAll }}>
       {children}
     </AppContext.Provider>
   );
